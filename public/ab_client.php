@@ -169,16 +169,24 @@ function getUserId(): string
 
 function getOrCreateExperiment(PDO $pdo, string $experimentKey, ?string $experimentName): int
 {
-    $existing = executeQuery($pdo,
-        "SELECT `id` FROM `experiments` WHERE `experiment_key` = ?",
-        [$experimentKey]
+    $existing = executeQuery(
+        pdo: $pdo,
+        sql: "
+            SELECT `id`
+            FROM `experiments`
+            WHERE `experiment_key` = ?
+        ",
+        params: [$experimentKey]
     );
 
     if ($existing !== null) {
         return (int) $existing['id'];
     }
 
-    $statement = $pdo->prepare("INSERT INTO `experiments` (`experiment_key`, `name`) VALUES (?, ?)");
+    $statement = $pdo->prepare(
+        "INSERT INTO `experiments` (`experiment_key`, `name`)
+        VALUES (?, ?)"
+    );
     $statement->execute([$experimentKey, $experimentName]);
 
     return (int) $pdo->lastInsertId();
@@ -186,30 +194,46 @@ function getOrCreateExperiment(PDO $pdo, string $experimentKey, ?string $experim
 
 function getExistingAssignment(PDO $pdo, int $experimentId, string $userId): ?array
 {
-    return executeQuery($pdo,
-        "SELECT `variants`.`variant_key` 
-         FROM `assignments` 
-         JOIN `variants` ON `variants`.`id` = `assignments`.`variant_id` 
-         WHERE `assignments`.`experiment_id` = ? AND `assignments`.`user_token` = ?",
-        [$experimentId, $userId]
+    return executeQuery(
+        pdo: $pdo,
+        sql: "
+            SELECT `variants`.`variant_key`
+            FROM `assignments`
+            JOIN `variants`
+                ON `variants`.`id` = `assignments`.`variant_id`
+            WHERE `assignments`.`experiment_id` = ?
+                AND `assignments`.`user_token` = ?
+        ",
+        params: [$experimentId, $userId]
     );
 }
 
 function ensureVariantsExist(PDO $pdo, int $experimentId, array $weights): void
 {
     foreach ($weights as $variantKey => $weight) {
-        $existing = executeQuery($pdo,
-            "SELECT `id` FROM `variants` WHERE `experiment_id` = ? AND `variant_key` = ?",
-            [$experimentId, $variantKey]
+        $existing = executeQuery(
+            pdo: $pdo,
+            sql: "
+                SELECT `id`
+                FROM `variants`
+                WHERE `experiment_id` = ?
+                    AND `variant_key` = ?
+            ",
+            params: [$experimentId, $variantKey]
         );
 
         if ($existing === null) {
             $statement = $pdo->prepare(
-                "INSERT INTO `variants` (`experiment_id`, `variant_key`, `name`, `weight`) VALUES (?, ?, ?, ?)"
+                "INSERT INTO `variants` (`experiment_id`, `variant_key`, `name`, `weight`)
+                VALUES (?, ?, ?, ?)"
             );
             $statement->execute([$experimentId, $variantKey, $variantKey, (int) $weight]);
         } else {
-            $statement = $pdo->prepare("UPDATE `variants` SET `weight` = ? WHERE `id` = ?");
+            $statement = $pdo->prepare(
+                "UPDATE `variants`
+                SET `weight` = ?
+                WHERE `id` = ?"
+            );
             $statement->execute([(int) $weight, $existing['id']]);
         }
     }
@@ -218,7 +242,10 @@ function ensureVariantsExist(PDO $pdo, int $experimentId, array $weights): void
 function getVariants(PDO $pdo, int $experimentId): array
 {
     $statement = $pdo->prepare(
-        "SELECT `id`, `variant_key`, `weight` FROM `variants` WHERE `experiment_id` = ? ORDER BY `variant_key`"
+        "SELECT `id`, `variant_key`, `weight`
+        FROM `variants`
+        WHERE `experiment_id` = ?
+        ORDER BY `variant_key`"
     );
     $statement->execute([$experimentId]);
 
@@ -250,36 +277,52 @@ function selectWeightedVariant(array $variants): array
 function saveAssignment(PDO $pdo, int $experimentId, int $variantId, string $userId): void
 {
     $statement = $pdo->prepare(
-        "INSERT INTO `assignments` (`experiment_id`, `variant_id`, `user_token`) VALUES (?, ?, ?)"
+        "INSERT INTO `assignments` (`experiment_id`, `variant_id`, `user_token`)
+        VALUES (?, ?, ?)"
     );
     $statement->execute([$experimentId, $variantId, $userId]);
 }
 
 function findExperiment(PDO $pdo, string $experimentKey): ?array
 {
-    return executeQuery($pdo,
-        "SELECT `id` FROM `experiments` WHERE `experiment_key` = ?",
-        [$experimentKey]
+    return executeQuery(
+        pdo: $pdo,
+        sql: "
+            SELECT `id`
+            FROM `experiments`
+            WHERE `experiment_key` = ?
+        ",
+        params: [$experimentKey]
     );
 }
 
 function findUserVariant(PDO $pdo, int $experimentId, string $userId): ?array
 {
-    return executeQuery($pdo,
-        "SELECT `variants`.`id` 
-         FROM `assignments` 
-         JOIN `variants` ON `variants`.`id` = `assignments`.`variant_id` 
-         WHERE `assignments`.`experiment_id` = ? AND `assignments`.`user_token` = ?",
-        [$experimentId, $userId]
+    return executeQuery(
+        pdo: $pdo,
+        sql: "
+            SELECT `variants`.`id` 
+            FROM `assignments` 
+            JOIN `variants`
+                ON `variants`.`id` = `assignments`.`variant_id` 
+            WHERE `assignments`.`experiment_id` = ?
+                AND `assignments`.`user_token` = ?
+        ",
+        params: [$experimentId, $userId]
     );
 }
 
 function goalAlreadyExists(PDO $pdo, int $experimentId, string $userId): bool
 {
-    $result = executeQuery($pdo,
-        "SELECT 1 FROM `events` 
-         WHERE `experiment_id` = ? AND `user_token` = ? AND `event` = ?",
-        [$experimentId, $userId, AB_GOAL_NAME]
+    $result = executeQuery(
+        pdo: $pdo,
+        sql: "
+            SELECT 1 FROM `events` 
+            WHERE `experiment_id` = ?
+                AND `user_token` = ?
+                AND `event` = ?
+        ",
+        params: [$experimentId, $userId, AB_GOAL_NAME]
     );
 
     return $result !== null;
@@ -289,7 +332,8 @@ function saveGoalEvent(PDO $pdo, int $experimentId, int $variantId, string $user
 {
     try {
         $statement = $pdo->prepare(
-            "INSERT INTO `events` (`experiment_id`, `variant_id`, `user_token`, `event`) VALUES (?, ?, ?, ?)"
+            "INSERT INTO `events` (`experiment_id`, `variant_id`, `user_token`, `event`)
+            VALUES (?, ?, ?, ?)"
         );
         $statement->execute([$experimentId, $variantId, $userId, AB_GOAL_NAME]);
 

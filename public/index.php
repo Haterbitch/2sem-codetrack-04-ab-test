@@ -16,9 +16,9 @@ require __DIR__ . '/ab_client.php';
 
 // Create or get variant assignment for CTA test
 $variant = ab_variant(
-    'cta_text',
-    'CTA Button Text',
-    [
+    experimentKey: 'cta_text',
+    experimentName: 'CTA Button Text',
+    weights: [
         'Sign Up Now' => 50,
         'Get Started Today' => 50,
     ]
@@ -115,7 +115,7 @@ $variant = ab_variant(
           .getElementById('cta-button')
           .addEventListener('click', function() {
             // Send goal tracking request
-            fetch('/ab_client.php?goal=1&experiment=cta_text')
+            fetch('/ab_client.php?goal&experiment=cta_text')
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {

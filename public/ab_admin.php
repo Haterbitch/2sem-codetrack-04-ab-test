@@ -21,7 +21,7 @@ if (isset($_POST['delete_data'], $_POST['experiment_id'])) {
     $success = deleteExperimentData($database, $experimentId);
 
     // Redirect to prevent resubmission
-    $message = $success ? 'success' : 'error';
+    $message = $success ? 'data_deleted' : 'error';
     header("Location: " . $_SERVER['PHP_SELF'] . "?deleted=$message");
     exit;
 }
@@ -94,7 +94,10 @@ function calculateExperimentStats(PDO $database, int $experimentId): array
     }
 
     // Sort by variant key for consistent display
-    usort($result, fn($a, $b) => strcmp($a['variant_key'], $b['variant_key']));
+    usort(
+        $result,
+        fn($a, $b) => strcmp($a['variant_key'], $b['variant_key']),
+    );
 
     return $result;
 }
@@ -102,7 +105,9 @@ function calculateExperimentStats(PDO $database, int $experimentId): array
 function getAllExperiments(PDO $database): array
 {
     $statement = $database->prepare(
-        "SELECT `id`, `experiment_key`, `name` FROM `experiments` ORDER BY `id` DESC"
+        "SELECT `id`, `experiment_key`, `name`
+        FROM `experiments`
+        ORDER BY `id` DESC"
     );
     $statement->execute();
 
@@ -140,7 +145,9 @@ function getVariantGoals(PDO $database, int $experimentId): array
 function getAllVariantsForExperiment(PDO $database, int $experimentId): array
 {
     $statement = $database->prepare(
-        "SELECT `variant_key` FROM `variants` WHERE `experiment_id` = ?"
+        "SELECT `variant_key`
+        FROM `variants`
+        WHERE `experiment_id` = ?"
     );
     $statement->execute([$experimentId]);
 
@@ -160,11 +167,17 @@ function deleteExperimentData(PDO $database, int $experimentId): bool
         $database->beginTransaction();
 
         // Delete all events for this experiment
-        $deleteEvents = $database->prepare("DELETE FROM `events` WHERE `experiment_id` = ?");
+        $deleteEvents = $database->prepare(
+            "DELETE FROM `events`
+            WHERE `experiment_id` = ?"
+        );
         $deleteEvents->execute([$experimentId]);
 
         // Delete all assignments for this experiment
-        $deleteAssignments = $database->prepare("DELETE FROM `assignments` WHERE `experiment_id` = ?");
+        $deleteAssignments = $database->prepare(
+            "DELETE FROM `assignments`
+            WHERE `experiment_id` = ?"
+        );
         $deleteAssignments->execute([$experimentId]);
 
         $database->commit();
@@ -188,19 +201,31 @@ function deleteEntireExperiment(PDO $database, int $experimentId): bool
         $database->beginTransaction();
 
         // Delete all events for this experiment
-        $deleteEvents = $database->prepare("DELETE FROM `events` WHERE `experiment_id` = ?");
+        $deleteEvents = $database->prepare(
+            "DELETE FROM `events`
+            WHERE `experiment_id` = ?"
+        );
         $deleteEvents->execute([$experimentId]);
 
         // Delete all assignments for this experiment
-        $deleteAssignments = $database->prepare("DELETE FROM `assignments` WHERE `experiment_id` = ?");
+        $deleteAssignments = $database->prepare(
+            "DELETE FROM `assignments`
+            WHERE `experiment_id` = ?"
+        );
         $deleteAssignments->execute([$experimentId]);
 
         // Delete all variants for this experiment
-        $deleteVariants = $database->prepare("DELETE FROM `variants` WHERE `experiment_id` = ?");
+        $deleteVariants = $database->prepare(
+            "DELETE FROM `variants`
+            WHERE `experiment_id` = ?"
+        );
         $deleteVariants->execute([$experimentId]);
 
         // Delete the experiment itself
-        $deleteExperiment = $database->prepare("DELETE FROM `experiments` WHERE `id` = ?");
+        $deleteExperiment = $database->prepare(
+            "DELETE FROM `experiments`
+            WHERE `id` = ?"
+        );
         $deleteExperiment->execute([$experimentId]);
 
         $database->commit();
@@ -414,7 +439,7 @@ function deleteEntireExperiment(PDO $database, int $experimentId): bool
 
         <div class="content">
             <?php if (isset($_GET['deleted'])): ?>
-                <?php if ($_GET['deleted'] === 'success'): ?>
+                <?php if ($_GET['deleted'] === 'data_deleted'): ?>
                     <div class="notification success">
                         ✓ Experiment data deleted successfully. All assignments and goals have been cleared.
                     </div>
