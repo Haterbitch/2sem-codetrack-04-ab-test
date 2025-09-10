@@ -1,4 +1,5 @@
 <?php
+
 global $pdo;
 
 /**
@@ -8,36 +9,39 @@ global $pdo;
 require __DIR__ . '/ab_client.php'; // reuses DB + helpers
 
 // List experiments
-$exps = $pdo->query("SELECT `id`, KEY, NAME FROM experiments ORDER BY id DESC")->fetchAll();
+$exps = $pdo->query("
+    SELECT `id`, KEY, NAME 
+    FROM experiments 
+    ORDER BY id DESC
+")->fetchAll();
 
 function stats_for_exp(PDO $pdo, int $expId): array
 {
     // Views = assignments per variant
-    $views = $pdo->prepare(
-        "
-    SELECT `v`.`key` AS `variant`, COUNT(*) AS `views`
-    FROM `assignments` `a`
-    JOIN `variants` `v` ON `v`.`id`=`a`.`variant_id`
-    WHERE `a`.`experiment_id`=?
-    GROUP BY `v`.`key`
-  "
-    );
+    $views = $pdo->prepare("
+        SELECT `v`.`key` AS `variant`, COUNT(*) AS `views`
+        FROM `assignments` `a`
+        JOIN `variants` `v` ON `v`.`id`=`a`.`variant_id`
+        WHERE `a`.`experiment_id`=?
+        GROUP BY `v`.`key`
+    ");
     $views->execute([$expId]);
     $vmap = [];
     foreach ($views->fetchAll() as $r) {
-        $vmap[$r['variant']] = ['views' => (int)$r['views'], 'clicks' => 0];
+        $vmap[$r['variant']] = [
+            'views' => (int)$r['views'],
+            'clicks' => 0,
+        ];
     }
 
     // Goals = events per variant
-    $goals = $pdo->prepare(
-        "
-    SELECT `v`.`key` AS `variant`, COUNT(*) AS `clicks`
-    FROM `events` `e`
-    JOIN `variants` `v` ON `v`.`id`=`e`.`variant_id`
-    WHERE `e`.`experiment_id`=? AND `e`.`event`=?
-    GROUP BY `v`.`key`
-  "
-    );
+    $goals = $pdo->prepare("
+        SELECT `v`.`key` AS `variant`, COUNT(*) AS `clicks`
+        FROM `events` `e`
+        JOIN `variants` `v` ON `v`.`id`=`e`.`variant_id`
+        WHERE `e`.`experiment_id`=? AND `e`.`event`=?
+        GROUP BY `v`.`key`
+    ");
     $goals->execute([$expId, AB_GOAL_NAME]);
     foreach ($goals->fetchAll() as $r) {
         $v = $r['variant'];
@@ -46,7 +50,11 @@ function stats_for_exp(PDO $pdo, int $expId): array
     }
 
     // Fill missing variants (if any)
-    $vars = $pdo->prepare("SELECT key FROM variants WHERE experiment_id=?");
+    $vars = $pdo->prepare("
+        SELECT KEY 
+        FROM variants 
+        WHERE experiment_id=?
+    ");
     $vars->execute([$expId]);
     foreach ($vars->fetchAll() as $r) {
         $vmap[$r['key']] = $vmap[$r['key']] ?? ['views' => 0, 'clicks' => 0];
@@ -55,10 +63,20 @@ function stats_for_exp(PDO $pdo, int $expId): array
     // Compute CTR
     $out = [];
     foreach ($vmap as $k => $d) {
-        $ctr = $d['views'] ? round(100 * $d['clicks'] / $d['views'], 2) : 0;
-        $out[] = ['variant' => $k, 'views' => $d['views'], 'goals' => $d['clicks'], 'ctr' => $ctr];
+        $ctr = $d['views']
+            ? round(100 * $d['clicks'] / $d['views'], 2)
+            : 0;
+        $out[] = [
+            'variant' => $k,
+            'views' => $d['views'],
+            'goals' => $d['clicks'],
+            'ctr' => $ctr,
+        ];
     }
-    usort($out, fn($a, $b) => strcmp($a['variant'], $b['variant']));
+    usort(
+        array: $out,
+        callback: fn($a, $b) => strcmp($a['variant'], $b['variant'])
+    );
     return $out;
 }
 
@@ -134,7 +152,7 @@ function stats_for_exp(PDO $pdo, int $expId): array
             </thead>
             <tbody>
                 <?php
-                foreach (stats_for_exp($pdo, (int)$e['id']) as $row): ?>
+                foreach (stats_for_exp(pdo: $pdo, expId: (int)$e['id']) as $row): ?>
                     <tr>
                         <td><?= htmlspecialchars($row['variant']) ?></td>
                         <td><?= $row['views'] ?></td>
@@ -177,4 +195,5 @@ if ($variant === 'A') {
 // ab_track_goal('cta_test');
 ?&gt;</code></pre>
 
-</body></html>
+</body>
+</html>

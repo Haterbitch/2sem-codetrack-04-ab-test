@@ -24,7 +24,7 @@ $uid = ab_uid();
 
 // Handle client-side goal ping: /ab_client.php?goal=1&exp=key
 if (isset($_GET['goal'], $_GET['exp'])) {
-    $ok = ab_track_goal($_GET['exp']);
+    $ok = ab_track_goal(expKey: $_GET['exp']);
     header('Content-Type: application/json');
     echo json_encode(['ok' => $ok]);
     exit;
@@ -45,21 +45,24 @@ function ab_variant(string $expKey, ?string $expName = null, array $weights = ['
 {
     global $pdo, $uid;
 
-    $expId = ab_get_or_create_experiment($pdo, $expKey, $expName);
-    $existing = ab_get_existing_assignment($pdo, $expId, $uid);
+    $expId = ab_get_or_create_experiment(pdo: $pdo, key: $expKey, name: $expName);
+    $existing = ab_get_existing_assignment(pdo: $pdo, expId: $expId, uid: $uid);
     if ($existing) {
         return $existing['variant_key'];
     }
 
     // Ensure variants exist & fetch with weights
-    ab_ensure_variants($pdo, $expId, $weights);
-    $variants = ab_get_variants($pdo, $expId); // [ [id, key, weight], ... ]
+    ab_ensure_variants(pdo: $pdo, expId: $expId, weights: $weights);
+    $variants = ab_get_variants(pdo: $pdo, expId: $expId); // [ [id, key, weight], ... ]
 
     // Weighted random pick
     $picked = ab_weighted_pick($variants);
 
     // Save assignment
-    $stmt = $pdo->prepare("INSERT INTO `assignments` (`experiment_id`, `variant_id`, `user_token`) VALUES (?, ?, ?)");
+    $stmt = $pdo->prepare("
+        INSERT INTO `assignments` (`experiment_id`, `variant_id`, `user_token`)
+        VALUES (?, ?, ?)
+    ");
     $stmt->execute([$expId, $picked['id'], $uid]);
 
     return $picked['key'];
@@ -74,22 +77,26 @@ function ab_track_goal(string $expKey): bool
 {
     global $pdo, $uid;
 
-    $exp = ab_fetch_one($pdo, "SELECT `id` FROM `experiments` WHERE KEY = ?", [$expKey]);
+    $exp = ab_fetch_one(
+        pdo: $pdo,
+        sql: "SELECT `id` FROM `experiments` WHERE KEY = ?",
+        params: [$expKey],
+    );
     if (!$exp) {
         return false;
     }
 
     // Find the user’s assigned variant for this experiment
     $row = ab_fetch_one(
-        $pdo,
-        "
-    SELECT `v`.`id` AS `variant_id`
-    FROM `assignments` `a`
-    JOIN `variants` `v` ON `v`.`id`=`a`.`variant_id`
-    WHERE `a`.`experiment_id`=? AND `a`.`user_token`=?
-    LIMIT 1
-  ",
-        [$exp['id'], $uid]
+        pdo: $pdo,
+        sql: "
+            SELECT `v`.`id` AS `variant_id`
+            FROM `assignments` `a`
+            JOIN `variants` `v` ON `v`.`id`=`a`.`variant_id`
+            WHERE `a`.`experiment_id`=? AND `a`.`user_token`=?
+            LIMIT 1
+        ",
+        params: [$exp['id'], $uid],
     );
     if (!$row) {
         return false;
@@ -97,19 +104,22 @@ function ab_track_goal(string $expKey): bool
 
     // Only count first goal per user per experiment
     $exists = ab_fetch_one(
-        $pdo,
-        "
-    SELECT 1 FROM `events`
-    WHERE `experiment_id`=? AND `user_token`=? AND `event`=?
-    LIMIT 1
-  ",
-        [$exp['id'], $uid, AB_GOAL_NAME]
+        pdo: $pdo,
+        sql: "
+            SELECT 1 FROM `events`
+            WHERE `experiment_id`=? AND `user_token`=? AND `event`=?
+            LIMIT 1
+        ",
+        params: [$exp['id'], $uid, AB_GOAL_NAME],
     );
     if ($exists) {
         return true;
     }
 
-    $stmt = $pdo->prepare("INSERT INTO events (experiment_id, variant_id, user_token, event) VALUES (?, ?, ?, ?)");
+    $stmt = $pdo->prepare("
+        INSERT INTO `events` (`experiment_id`, `variant_id`, `user_token`, `event`)
+        VALUES (?, ?, ?, ?)
+    ");
     $stmt->execute([$exp['id'], $row['variant_id'], $uid, AB_GOAL_NAME]);
     return true;
 }
@@ -179,11 +189,18 @@ function ab_uid(): string
 
 function ab_get_or_create_experiment(PDO $pdo, string $key, ?string $name): int
 {
-    $row = ab_fetch_one($pdo, "SELECT `id` FROM `experiments` WHERE KEY=?", [$key]);
+    $row = ab_fetch_one(
+        pdo: $pdo,
+        sql: "SELECT `id` FROM `experiments` WHERE KEY=?",
+        params: [$key],
+    );
     if ($row) {
         return (int)$row['id'];
     }
-    $stmt = $pdo->prepare("INSERT INTO experiments(key,name) VALUES(?,?)");
+    $stmt = $pdo->prepare("
+        INSERT INTO `experiments`(`key`,`name`)
+        VALUES(?,?)
+    ");
     $stmt->execute([$key, $name]);
     return (int)$pdo->lastInsertId();
 }
@@ -191,13 +208,23 @@ function ab_get_or_create_experiment(PDO $pdo, string $key, ?string $name): int
 function ab_ensure_variants(PDO $pdo, int $expId, array $weights): void
 {
     foreach ($weights as $k => $w) {
-        $row = ab_fetch_one($pdo, "SELECT `id` FROM `variants` WHERE `experiment_id`=? AND KEY=?", [$expId, (string)$k]
+        $row = ab_fetch_one(
+            pdo: $pdo,
+            sql: "SELECT `id` FROM `variants` WHERE `experiment_id`=? AND KEY=?",
+            params: [$expId, (string)$k],
         );
         if (!$row) {
-            $stmt = $pdo->prepare("INSERT INTO variants(experiment_id, key, name, weight) VALUES(?,?,?,?)");
+            $stmt = $pdo->prepare("
+                INSERT INTO `variants`(`experiment_id`, `key`, `name`, `weight`)
+                VALUES(?,?,?,?)
+            ");
             $stmt->execute([$expId, (string)$k, (string)$k, (int)$w]);
         } else {
-            $stmt = $pdo->prepare("UPDATE variants SET weight=? WHERE id=?");
+            $stmt = $pdo->prepare("
+                UPDATE variants 
+                SET weight=? 
+                WHERE id=?
+            ");
             $stmt->execute([(int)$w, $row['id']]);
         }
     }
@@ -205,7 +232,12 @@ function ab_ensure_variants(PDO $pdo, int $expId, array $weights): void
 
 function ab_get_variants(PDO $pdo, int $expId): array
 {
-    $stmt = $pdo->prepare("SELECT id, key, weight FROM variants WHERE experiment_id=? ORDER BY key");
+    $stmt = $pdo->prepare("
+        SELECT `id`, KEY, weight 
+        FROM variants 
+        WHERE experiment_id=? 
+        ORDER BY KEY
+    ");
     $stmt->execute([$expId]);
     return $stmt->fetchAll();
 }
@@ -213,15 +245,15 @@ function ab_get_variants(PDO $pdo, int $expId): array
 function ab_get_existing_assignment(PDO $pdo, int $expId, string $uid): ?array
 {
     $row = ab_fetch_one(
-        $pdo,
-        "
-    SELECT v.key AS variant_key
-    FROM assignments a
-    JOIN variants v ON v.id=a.variant_id
-    WHERE a.experiment_id=? AND a.user_token=?
-    LIMIT 1
-  ",
-        [$expId, $uid]
+        pdo: $pdo,
+        sql: "
+            SELECT v.key AS variant_key
+            FROM assignments a
+            JOIN variants v ON v.id=a.variant_id
+            WHERE a.experiment_id=? AND a.user_token=?
+            LIMIT 1
+        ",
+        params: [$expId, $uid]
     );
     return $row ?: null;
 }
@@ -245,7 +277,8 @@ function ab_weighted_pick(array $variants): array
 
 function ab_fetch_one(PDO $pdo, string $sql, array $params = []): ?array
 {
-    $stmt = $pdo->prepare($sql); $stmt->execute($params);
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
     $row = $stmt->fetch();
     return $row ?: null;
 }
