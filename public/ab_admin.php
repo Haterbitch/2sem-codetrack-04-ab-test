@@ -9,6 +9,10 @@ declare(strict_types=1);
  * Note: Put this behind authentication in production!
  */
 
+/**
+ * @var $database PDO
+ * @var $userId string
+ */
 require __DIR__ . '/ab_client.php';
 
 // Handle delete data request
@@ -56,7 +60,7 @@ function calculateExperimentStats(PDO $database, int $experimentId): array
         $stats[$variant['variant_key']] = [
             'views' => 0,
             'goals' => 0,
-            'conversion_rate' => 0.0
+            'conversion_rate' => 0.0,
         ];
     }
 
@@ -85,7 +89,7 @@ function calculateExperimentStats(PDO $database, int $experimentId): array
             'variant_key' => $variantKey,
             'views' => $data['views'],
             'goals' => $data['goals'],
-            'conversion_rate' => $data['conversion_rate']
+            'conversion_rate' => $data['conversion_rate'],
         ];
     }
 

@@ -8,17 +8,28 @@ declare(strict_types=1);
  * Example implementation showing how to use the A/B testing library
  */
 
+/**
+ * @var $database PDO
+ * @var $userId string
+ */
 require __DIR__ . '/ab_client.php';
 
 // Create or get variant assignment for CTA test
-$variant = ab_variant('cta_test', 'CTA Button Test', ['A' => 50, 'B' => 50]);
+$variant = ab_variant(
+    'cta_text',
+    'CTA Button Text',
+    [
+        'Sign Up Now' => 50,
+        'Get Started Today' => 50,
+    ]
+);
 
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>A/B Test Demo</title>
+    <title>Welcome to Our Service</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
@@ -80,32 +91,6 @@ $variant = ab_variant('cta_test', 'CTA Button Test', ['A' => 50, 'B' => 50]);
             background-color: #1e7e34;
             transform: translateY(-2px);
         }
-
-        .variant-info {
-            margin-top: 2rem;
-            padding: 1rem;
-            background-color: #e7f3ff;
-            border: 1px solid #b3d9ff;
-            border-radius: 6px;
-            font-family: monospace;
-            color: #0066cc;
-        }
-
-        .admin-link {
-            margin-top: 2rem;
-            padding-top: 2rem;
-            border-top: 1px solid #eee;
-        }
-
-        .admin-link a {
-            color: #6c757d;
-            text-decoration: none;
-            font-size: 0.9rem;
-        }
-
-        .admin-link a:hover {
-            color: #495057;
-        }
     </style>
 </head>
 <body>
@@ -113,32 +98,24 @@ $variant = ab_variant('cta_test', 'CTA Button Test', ['A' => 50, 'B' => 50]);
         <h1>Welcome to Our Service</h1>
         <p class="subtitle">Join thousands of satisfied customers today</p>
 
-        <?php if ($variant === 'A'): ?>
+        <?php if ($variant === 'Sign Up Now'): ?>
             <button id="cta-button" class="cta-button cta-primary">
                 Sign Up Now
             </button>
-            <div class="variant-info">
-                Currently showing Variant A: "Sign Up Now" (Blue Button)
-            </div>
         <?php else: ?>
             <button id="cta-button" class="cta-button cta-success">
                 Get Started Today
             </button>
-            <div class="variant-info">
-                Currently showing Variant B: "Get Started Today" (Green Button)
-            </div>
         <?php endif; ?>
-
-        <div class="admin-link">
-            <a href="ab_admin.php">View A/B Test Results →</a>
-        </div>
     </div>
 
     <script>
         // Track goal when CTA button is clicked
-        document.getElementById('cta-button').addEventListener('click', function() {
+        document
+          .getElementById('cta-button')
+          .addEventListener('click', function() {
             // Send goal tracking request
-            fetch('/ab_client.php?goal=1&experiment=cta_test')
+            fetch('/ab_client.php?goal=1&experiment=cta_text')
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
@@ -150,7 +127,7 @@ $variant = ab_variant('cta_test', 'CTA Button Test', ['A' => 50, 'B' => 50]);
                 });
 
             // Show feedback to user
-            this.textContent = 'Thanks! Goal Tracked ✓';
+            this.textContent = 'Thanks!';
             this.style.backgroundColor = '#6c757d';
             this.disabled = true;
         });

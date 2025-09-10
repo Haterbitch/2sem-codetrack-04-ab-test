@@ -15,7 +15,7 @@ declare(strict_types=1);
  */
 
 // Configuration constants
-const AB_DB_PATH = __DIR__ . '/../database.sqlite';
+const AB_DB_PATH = __DIR__ . '/../ab_tests.sqlite';
 const AB_COOKIE_NAME = 'ab_uid';
 const AB_COOKIE_DAYS = 365;
 const AB_GOAL_NAME = 'goal';
@@ -45,7 +45,7 @@ if (isset($_GET['goal'], $_GET['experiment'])) {
 function ab_variant(
     string $experimentKey,
     ?string $experimentName = null,
-    array $weights = ['A' => 50, 'B' => 50]
+    array $weights = ['A' => 50, 'B' => 50],
 ): string {
     global $database, $userId;
 
@@ -139,7 +139,7 @@ function migrateDatabase(PDO $pdo): void
             `user_token` TEXT NOT NULL,
             `event` TEXT NOT NULL,
             `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
-        )"
+        )",
     ];
 
     foreach ($queries as $query) {
@@ -158,7 +158,7 @@ function getUserId(): string
             'expires' => time() + (AB_COOKIE_DAYS * 24 * 60 * 60),
             'path' => '/',
             'httponly' => true,
-            'samesite' => 'Lax'
+            'samesite' => 'Lax',
         ]);
 
         $_COOKIE[AB_COOKIE_NAME] = $userId;
