@@ -1,203 +1,344 @@
 <?php
 
-global $pdo;
+declare(strict_types=1);
+
+global$database;
 
 /**
- * ab_admin.php — tiny admin to view experiments & conversion
- * Put this behind basic auth if public!
+ * A/B Testing Admin Dashboard
+ *
+ * Simple dashboard to view experiment statistics and conversion rates.
+ * Note: Put this behind authentication in production!
  */
-require __DIR__ . '/ab_client.php'; // reuses DB + helpers
 
-// List experiments
-$exps = $pdo->query("
-    SELECT `id`, `experiment_key`, `name`
-    FROM `experiments`
-    ORDER BY `id` DESC
-")->fetchAll();
+require __DIR__ . '/ab_client.php';
 
-function stats_for_experiment(PDO $pdo, int $experimentId): array
+// Get all experiments ordered by most recent
+$experiments = getAllExperiments($database);
+
+/**
+ * Calculate statistics for a specific experiment
+ *
+ * @param PDO $database Database connection
+ * @param int $experimentId The experiment ID
+ * @return array Statistics including views, goals, and conversion rates
+ */
+function calculateExperimentStats(PDO $database, int $experimentId): array
 {
-    // Views = assignments per variant (no alias for variant_key)
-    $views = $pdo->prepare("
-        SELECT `variants`.`variant_key`, COUNT(*) AS `views`
-        FROM `assignments`
-        JOIN `variants`
-            ON `variants`.`id` = `assignments`.`variant_id`
-        WHERE `assignments`.`experiment_id` = ?
-        GROUP BY `variants`.`variant_key`
-    ");
-    $views->execute([$experimentId]);
-    $vmap = [];
-    foreach ($views->fetchAll() as $r) {
-        $vmap[$r['variant_key']] = [
-            'views' => (int)$r['views'],
-            'clicks' => 0,
+    $viewStats = getVariantViews($database, $experimentId);
+    $goalStats = getVariantGoals($database, $experimentId);
+    $allVariants = getAllVariantsForExperiment($database, $experimentId);
+
+    $stats = [];
+
+    // Initialize all variants with zero stats
+    foreach ($allVariants as $variant) {
+        $stats[$variant['variant_key']] = [
+            'views' => 0,
+            'goals' => 0,
+            'conversion_rate' => 0.0
         ];
     }
 
-    // Goals = events per variant
-    $goals = $pdo->prepare("
-        SELECT `variants`.`variant_key`, COUNT(*) AS `clicks`
-        FROM `events`
-        JOIN `variants`
-            ON `variants`.`id` = `events`.`variant_id`
-        WHERE `events`.`experiment_id` = ?
-          AND `events`.`event` = ?
-        GROUP BY `variants`.`variant_key`
-    ");
-    $goals->execute([$experimentId, AB_GOAL_NAME]);
-    foreach ($goals->fetchAll() as $r) {
-        $k = $r['variant_key'];
-        $vmap[$k] = $vmap[$k] ?? ['views' => 0, 'clicks' => 0];
-        $vmap[$k]['clicks'] = (int)$r['clicks'];
+    // Add view counts
+    foreach ($viewStats as $stat) {
+        $stats[$stat['variant_key']]['views'] = (int) $stat['views'];
     }
 
-    // Fill missing variants (if any)
-    $vars = $pdo->prepare("
-        SELECT `variant_key`
-        FROM `variants`
-        WHERE `experiment_id` = ?
-    ");
-    $vars->execute([$experimentId]);
-    foreach ($vars->fetchAll() as $r) {
-        $k = $r['variant_key'];
-        $vmap[$k] = $vmap[$k] ?? ['views' => 0, 'clicks' => 0];
+    // Add goal counts and calculate conversion rates
+    foreach ($goalStats as $stat) {
+        $variantKey = $stat['variant_key'];
+        $stats[$variantKey]['goals'] = (int) $stat['goals'];
+
+        if ($stats[$variantKey]['views'] > 0) {
+            $stats[$variantKey]['conversion_rate'] = round(
+                ($stats[$variantKey]['goals'] / $stats[$variantKey]['views']) * 100,
+                2
+            );
+        }
     }
 
-    // Compute CTR
-    $out = [];
-    foreach ($vmap as $k => $d) {
-        $ctr = $d['views']
-            ? round(100 * $d['clicks'] / $d['views'], 2)
-            : 0;
-        $out[] = [
-            'variant_key' => $k,
-            'views' => $d['views'],
-            'goals' => $d['clicks'],
-            'ctr' => $ctr,
+    // Convert to indexed array for easier display
+    $result = [];
+    foreach ($stats as $variantKey => $data) {
+        $result[] = [
+            'variant_key' => $variantKey,
+            'views' => $data['views'],
+            'goals' => $data['goals'],
+            'conversion_rate' => $data['conversion_rate']
         ];
     }
-    usort(
-        $out,
-        fn($a, $b) => strcmp($a['variant_key'], $b['variant_key']),
-    );
-    return $out;
+
+    // Sort by variant key for consistent display
+    usort($result, fn($a, $b) => strcmp($a['variant_key'], $b['variant_key']));
+
+    return $result;
 }
 
-?>
-<!doctype html>
+function getAllExperiments(PDO $database): array
+{
+    $statement = $database->prepare(
+        "SELECT `id`, `experiment_key`, `name` FROM `experiments` ORDER BY `id` DESC"
+    );
+    $statement->execute();
+
+    return $statement->fetchAll();
+}
+
+function getVariantViews(PDO $database, int $experimentId): array
+{
+    $statement = $database->prepare(
+        "SELECT `variants`.`variant_key`, COUNT(*) AS `views`
+         FROM `assignments`
+         JOIN `variants` ON `variants`.`id` = `assignments`.`variant_id`
+         WHERE `assignments`.`experiment_id` = ?
+         GROUP BY `variants`.`variant_key`"
+    );
+    $statement->execute([$experimentId]);
+
+    return $statement->fetchAll();
+}
+
+function getVariantGoals(PDO $database, int $experimentId): array
+{
+    $statement = $database->prepare(
+        "SELECT `variants`.`variant_key`, COUNT(*) AS `goals`
+         FROM `events`
+         JOIN `variants` ON `variants`.`id` = `events`.`variant_id`
+         WHERE `events`.`experiment_id` = ? AND `events`.`event` = ?
+         GROUP BY `variants`.`variant_key`"
+    );
+    $statement->execute([$experimentId, AB_GOAL_NAME]);
+
+    return $statement->fetchAll();
+}
+
+function getAllVariantsForExperiment(PDO $database, int $experimentId): array
+{
+    $statement = $database->prepare(
+        "SELECT `variant_key` FROM `variants` WHERE `experiment_id` = ?"
+    );
+    $statement->execute([$experimentId]);
+
+    return $statement->fetchAll();
+}
+
+?><!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>AB Admin</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>A/B Testing Dashboard</title>
     <style>
-      body {
-        font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-        padding: 24px;
-        color: #111;
-      }
+        * {
+            box-sizing: border-box;
+        }
 
-      h1 {
-        margin-top: 0;
-      }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 2rem;
+            background-color: #f8f9fa;
+            color: #333;
+        }
 
-      table {
-        border-collapse: collapse;
-        width: 100%;
-        margin: 12px 0 24px;
-      }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
 
-      th, td {
-        border: 1px solid #ddd;
-        padding: 8px 10px;
-        text-align: left;
-      }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
 
-      th {
-        background: #f7f7f7;
-      }
+        .header h1 {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 600;
+        }
 
-      small.code {
-        background: #f0f0f0;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      }
+        .content {
+            padding: 2rem;
+        }
 
-      .note {
-        color: #555;
-      }
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #6c757d;
+        }
+
+        .experiment {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .experiment:last-child {
+            margin-bottom: 0;
+        }
+
+        .experiment h2 {
+            margin: 0 0 0.5rem 0;
+            color: #495057;
+            font-size: 1.5rem;
+        }
+
+        .experiment-key {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            background: #e9ecef;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            color: #495057;
+        }
+
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .stats-table th,
+        .stats-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .stats-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .stats-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .stats-table tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .variant-key {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-weight: 600;
+            color: #007bff;
+        }
+
+        .metric {
+            font-weight: 600;
+        }
+
+        .conversion-rate {
+            color: #28a745;
+        }
+
+        .usage-example {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .usage-example h3 {
+            margin: 0 0 1rem 0;
+            color: #495057;
+        }
+
+        .code-block {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body>
-    <h1>A/B Experiments</h1>
+    <div class="container">
+        <div class="header">
+            <h1>A/B Testing Dashboard</h1>
+        </div>
 
-    <?php
-    if (!$exps): ?>
-        <p class="note">No experiments yet. Create one by calling
-            <small class="code">ab_variant('example', 'My Experiment', ['A'=>50,'B'=>50])</small> in your page.
-        </p>
-    <?php
-    endif; ?>
+        <div class="content">
+            <?php if (empty($experiments)): ?>
+                <div class="empty-state">
+                    <h3>No experiments found</h3>
+                    <p>Create your first experiment by calling:</p>
+                    <div class="code-block">ab_variant('my_test', 'My First Test', ['A' => 50, 'B' => 50]);</div>
+                </div>
+            <?php else: ?>
+                <?php foreach ($experiments as $experiment): ?>
+                    <div class="experiment">
+                        <h2><?= htmlspecialchars($experiment['name'] ?: $experiment['experiment_key']) ?></h2>
+                        <p>Experiment Key: <span class="experiment-key"><?= htmlspecialchars($experiment['experiment_key']) ?></span></p>
 
-    <?php
-    foreach ($exps as $e): ?>
-        <h2><?= htmlspecialchars($e['name'] ?: $e['experiment_key']) ?></h2>
-        <p class="note">Key: <small class="code"><?= htmlspecialchars($e['experiment_key']) ?></small></p>
-        <table>
-            <thead>
-                <tr>
-                    <th>Variant</th>
-                    <th>Views</th>
-                    <th>Goals</th>
-                    <th>CTR %</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php
-                foreach (stats_for_experiment(pdo: $pdo, experimentId: (int)$e['id']) as $row): ?>
-                    <tr>
-                        <td><?= htmlspecialchars($row['variant_key']) ?></td>
-                        <td><?= $row['views'] ?></td>
-                        <td><?= $row['goals'] ?></td>
-                        <td><?= $row['ctr'] ?></td>
-                    </tr>
-                <?php
-                endforeach; ?>
-            </tbody>
-        </table>
-    <?php
-    endforeach; ?>
+                        <table class="stats-table">
+                            <thead>
+                                <tr>
+                                    <th>Variant</th>
+                                    <th>Views</th>
+                                    <th>Goals</th>
+                                    <th>Conversion Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach (calculateExperimentStats($database, (int) $experiment['id']) as $stat): ?>
+                                    <tr>
+                                        <td><span class="variant-key"><?= htmlspecialchars($stat['variant_key']) ?></span></td>
+                                        <td><span class="metric"><?= $stat['views'] ?></span></td>
+                                        <td><span class="metric"><?= $stat['goals'] ?></span></td>
+                                        <td><span class="metric conversion-rate"><?= $stat['conversion_rate'] ?>%</span></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
 
-    <h3>How to use (copy/paste)</h3>
-    <pre><code>&lt;?php
+            <div class="usage-example">
+                <h3>Implementation Example</h3>
+                <div class="code-block">&lt;?php
 require __DIR__ . '/ab_client.php';
 
-// 1) Choose or create experiment + weighted variants
-$variant = ab_variant('cta_test', 'CTA button test', ['A' =&gt; 50, 'B' =&gt; 50]);
+// Assign variant
+$variant = ab_variant('cta_test', 'CTA Button Test', ['A' =&gt; 50, 'B' =&gt; 50]);
 
-// 2) Render
+// Render based on variant
 if ($variant === 'A') {
-  echo '&lt;a href="#" id="ctaA" class="btn btn-primary"&gt;Sign up now&lt;/a&gt;';
+    echo '&lt;button id="cta" class="btn-primary"&gt;Sign Up Now&lt;/button&gt;';
 } else {
-  echo '&lt;a href="#" id="ctaB" class="btn btn-success"&gt;Learn more&lt;/a&gt;';
+    echo '&lt;button id="cta" class="btn-success"&gt;Get Started&lt;/button&gt;';
 }
 
-// 3a) Client-side goal (on click)
+// Track goals with JavaScript
 ?&gt;
 &lt;script&gt;
-  document.addEventListener('click', function(e){
-    if(e.target.matches('#ctaA, #ctaB')) {
-      fetch('/ab_client.php?goal=1&amp;experiment=cta_test');
-    }
-  });
-&lt;/script&gt;
-
-&lt;?php
-// 3b) Or server-side goal (after e.g. successful form):
-// ab_track_goal('cta_test');
-?&gt;</code></pre>
-
+document.getElementById('cta').addEventListener('click', function() {
+    fetch('/ab_client.php?goal=1&amp;experiment=cta_test');
+});
+&lt;/script&gt;</div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

@@ -1,35 +1,159 @@
 <?php
+
+declare(strict_types=1);
+
+/**
+ * A/B Testing Demo Page
+ *
+ * Example implementation showing how to use the A/B testing library
+ */
+
 require __DIR__ . '/ab_client.php';
 
-// 1) Choose or create experiment + weighted variants
-$variant = ab_variant(
-    experimentKey: 'cta_text',
-    experimentName: 'CTA button text',
-    weights: ['Sign up now' => 50, 'Learn more' => 50]
-);
+// Create or get variant assignment for CTA test
+$variant = ab_variant('cta_test', 'CTA Button Test', ['A' => 50, 'B' => 50]);
 
-// 2) Render
-if ($variant === 'Sign up now') {
-    echo '<a href="#" id="ctaA" class="btn btn-primary">Sign up now</a>';
-} else {
-    echo '<a href="#" id="ctaB" class="btn btn-success">Learn more</a>';
-}
-
-// 3a) Client-side goal (on click)
-?>
-    <script>
-      document.addEventListener('click', function(e){
-        if(e.target.matches('#ctaA, #ctaB')) {
-          fetch('/ab_client.php?goal=1&experiment=cta_text')
-            .then(response => response.json())
-            .then(data => {
-              console.log('A/B goal tracked: [cta_text]', data);
-            });
+?><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>A/B Test Demo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+            line-height: 1.6;
+            background-color: #f8f9fa;
         }
-      });
-    </script>
 
-<?php
-// 3b) Or server-side goal (after e.g. successful form):
-// ab_track_goal('cta_test');
-?>
+        .demo-container {
+            background: white;
+            padding: 3rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 1rem;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 3rem;
+            font-size: 1.1rem;
+        }
+
+        .cta-button {
+            display: inline-block;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            text-decoration: none;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin: 1rem;
+        }
+
+        .cta-primary {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .cta-primary:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+
+        .cta-success {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .cta-success:hover {
+            background-color: #1e7e34;
+            transform: translateY(-2px);
+        }
+
+        .variant-info {
+            margin-top: 2rem;
+            padding: 1rem;
+            background-color: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 6px;
+            font-family: monospace;
+            color: #0066cc;
+        }
+
+        .admin-link {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid #eee;
+        }
+
+        .admin-link a {
+            color: #6c757d;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .admin-link a:hover {
+            color: #495057;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <h1>Welcome to Our Service</h1>
+        <p class="subtitle">Join thousands of satisfied customers today</p>
+
+        <?php if ($variant === 'A'): ?>
+            <button id="cta-button" class="cta-button cta-primary">
+                Sign Up Now
+            </button>
+            <div class="variant-info">
+                Currently showing Variant A: "Sign Up Now" (Blue Button)
+            </div>
+        <?php else: ?>
+            <button id="cta-button" class="cta-button cta-success">
+                Get Started Today
+            </button>
+            <div class="variant-info">
+                Currently showing Variant B: "Get Started Today" (Green Button)
+            </div>
+        <?php endif; ?>
+
+        <div class="admin-link">
+            <a href="ab_admin.php">View A/B Test Results →</a>
+        </div>
+    </div>
+
+    <script>
+        // Track goal when CTA button is clicked
+        document.getElementById('cta-button').addEventListener('click', function() {
+            // Send goal tracking request
+            fetch('/ab_client.php?goal=1&experiment=cta_test')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log('Goal tracked successfully');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error tracking goal:', error);
+                });
+
+            // Show feedback to user
+            this.textContent = 'Thanks! Goal Tracked ✓';
+            this.style.backgroundColor = '#6c757d';
+            this.disabled = true;
+        });
+    </script>
+</body>
+</html>
