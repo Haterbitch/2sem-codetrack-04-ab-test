@@ -2,10 +2,14 @@
 require __DIR__ . '/ab_client.php';
 
 // 1) Choose or create experiment + weighted variants
-$variant = ab_variant('cta_test', 'CTA button test', ['A' => 50, 'B' => 50]);
+$variant = ab_variant(
+    experimentKey: 'cta_text',
+    experimentName: 'CTA button text',
+    weights: ['Sign up now' => 50, 'Learn more' => 50]
+);
 
 // 2) Render
-if ($variant === 'A') {
+if ($variant === 'Sign up now') {
     echo '<a href="#" id="ctaA" class="btn btn-primary">Sign up now</a>';
 } else {
     echo '<a href="#" id="ctaB" class="btn btn-success">Learn more</a>';
@@ -16,7 +20,11 @@ if ($variant === 'A') {
     <script>
       document.addEventListener('click', function(e){
         if(e.target.matches('#ctaA, #ctaB')) {
-          fetch('/ab_client.php?goal=1&experiment=cta_test');
+          fetch('/ab_client.php?goal=1&experiment=cta_text')
+            .then(response => response.json())
+            .then(data => {
+              console.log('A/B goal tracked: [cta_text]', data);
+            });
         }
       });
     </script>
