@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-global$database;
-
 /**
  * A/B Testing Admin Dashboard
  *
@@ -12,6 +10,28 @@ global$database;
  */
 
 require __DIR__ . '/ab_client.php';
+
+// Handle delete data request
+if (isset($_POST['delete_data'], $_POST['experiment_id'])) {
+    $experimentId = (int) $_POST['experiment_id'];
+    $success = deleteExperimentData($database, $experimentId);
+
+    // Redirect to prevent resubmission
+    $message = $success ? 'success' : 'error';
+    header("Location: " . $_SERVER['PHP_SELF'] . "?deleted=$message");
+    exit;
+}
+
+// Handle delete entire experiment request
+if (isset($_POST['delete_experiment'], $_POST['experiment_id'])) {
+    $experimentId = (int) $_POST['experiment_id'];
+    $success = deleteEntireExperiment($database, $experimentId);
+
+    // Redirect to prevent resubmission
+    $message = $success ? 'experiment_deleted' : 'experiment_error';
+    header("Location: " . $_SERVER['PHP_SELF'] . "?deleted=$message");
+    exit;
+}
 
 // Get all experiments ordered by most recent
 $experiments = getAllExperiments($database);
@@ -123,6 +143,69 @@ function getAllVariantsForExperiment(PDO $database, int $experimentId): array
     return $statement->fetchAll();
 }
 
+/**
+ * Delete all data (assignments and events) for an experiment
+ *
+ * @param PDO $database Database connection
+ * @param int $experimentId The experiment ID to clear data for
+ * @return bool True if deletion was successful
+ */
+function deleteExperimentData(PDO $database, int $experimentId): bool
+{
+    try {
+        $database->beginTransaction();
+
+        // Delete all events for this experiment
+        $deleteEvents = $database->prepare("DELETE FROM `events` WHERE `experiment_id` = ?");
+        $deleteEvents->execute([$experimentId]);
+
+        // Delete all assignments for this experiment
+        $deleteAssignments = $database->prepare("DELETE FROM `assignments` WHERE `experiment_id` = ?");
+        $deleteAssignments->execute([$experimentId]);
+
+        $database->commit();
+        return true;
+    } catch (PDOException $e) {
+        $database->rollBack();
+        return false;
+    }
+}
+
+/**
+ * Delete an entire experiment and all its associated data
+ *
+ * @param PDO $database Database connection
+ * @param int $experimentId The experiment ID to completely delete
+ * @return bool True if deletion was successful
+ */
+function deleteEntireExperiment(PDO $database, int $experimentId): bool
+{
+    try {
+        $database->beginTransaction();
+
+        // Delete all events for this experiment
+        $deleteEvents = $database->prepare("DELETE FROM `events` WHERE `experiment_id` = ?");
+        $deleteEvents->execute([$experimentId]);
+
+        // Delete all assignments for this experiment
+        $deleteAssignments = $database->prepare("DELETE FROM `assignments` WHERE `experiment_id` = ?");
+        $deleteAssignments->execute([$experimentId]);
+
+        // Delete all variants for this experiment
+        $deleteVariants = $database->prepare("DELETE FROM `variants` WHERE `experiment_id` = ?");
+        $deleteVariants->execute([$experimentId]);
+
+        // Delete the experiment itself
+        $deleteExperiment = $database->prepare("DELETE FROM `experiments` WHERE `id` = ?");
+        $deleteExperiment->execute([$experimentId]);
+
+        $database->commit();
+        return true;
+    } catch (PDOException $e) {
+        $database->rollBack();
+        return false;
+    }
+}
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -187,7 +270,14 @@ function getAllVariantsForExperiment(PDO $database, int $experimentId): array
             margin-bottom: 0;
         }
 
-        .experiment h2 {
+        .experiment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .experiment-info h2 {
             margin: 0 0 0.5rem 0;
             color: #495057;
             font-size: 1.5rem;
@@ -200,6 +290,27 @@ function getAllVariantsForExperiment(PDO $database, int $experimentId): array
             border-radius: 4px;
             font-size: 0.875rem;
             color: #495057;
+        }
+
+        .delete-button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: background-color 0.2s ease;
+        }
+
+        .delete-button:hover {
+            background-color: #c82333;
+        }
+
+        .delete-button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
         }
 
         .stats-table {
@@ -270,6 +381,25 @@ function getAllVariantsForExperiment(PDO $database, int $experimentId): array
             font-size: 0.875rem;
             line-height: 1.5;
         }
+
+        .notification {
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+
+        .notification.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .notification.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
     </style>
 </head>
 <body>
@@ -279,6 +409,22 @@ function getAllVariantsForExperiment(PDO $database, int $experimentId): array
         </div>
 
         <div class="content">
+            <?php if (isset($_GET['deleted'])): ?>
+                <?php if ($_GET['deleted'] === 'success'): ?>
+                    <div class="notification success">
+                        ✓ Experiment data deleted successfully. All assignments and goals have been cleared.
+                    </div>
+                <?php elseif ($_GET['deleted'] === 'experiment_deleted'): ?>
+                    <div class="notification success">
+                        ✓ Entire experiment deleted successfully. All data, including assignments and goals, have been removed.
+                    </div>
+                <?php else: ?>
+                    <div class="notification error">
+                        ✗ Error deleting experiment data. Please try again.
+                    </div>
+                <?php endif; ?>
+            <?php endif; ?>
+
             <?php if (empty($experiments)): ?>
                 <div class="empty-state">
                     <h3>No experiments found</h3>
@@ -288,8 +434,26 @@ function getAllVariantsForExperiment(PDO $database, int $experimentId): array
             <?php else: ?>
                 <?php foreach ($experiments as $experiment): ?>
                     <div class="experiment">
-                        <h2><?= htmlspecialchars($experiment['name'] ?: $experiment['experiment_key']) ?></h2>
-                        <p>Experiment Key: <span class="experiment-key"><?= htmlspecialchars($experiment['experiment_key']) ?></span></p>
+                        <div class="experiment-header">
+                            <div class="experiment-info">
+                                <h2><?= htmlspecialchars($experiment['name'] ?: $experiment['experiment_key']) ?></h2>
+                                <p>Experiment Key: <span class="experiment-key"><?= htmlspecialchars($experiment['experiment_key']) ?></span></p>
+                            </div>
+                            <div>
+                                <form method="post" style="display:inline;">
+                                    <input type="hidden" name="experiment_id" value="<?= $experiment['id'] ?>">
+                                    <button type="submit" name="delete_data" class="delete-button" onclick="return confirm('Are you sure you want to delete all data for this experiment? This action cannot be undone.');">
+                                        Delete Data
+                                    </button>
+                                </form>
+                                <form method="post" style="display:inline;">
+                                    <input type="hidden" name="experiment_id" value="<?= $experiment['id'] ?>">
+                                    <button type="submit" name="delete_experiment" class="delete-button" onclick="return confirm('Are you sure you want to delete this entire experiment? This action cannot be undone.');">
+                                        Delete Experiment
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
 
                         <table class="stats-table">
                             <thead>
