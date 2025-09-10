@@ -16,7 +16,7 @@ if ($variant === 'A') {
     <script>
       document.addEventListener('click', function(e){
         if(e.target.matches('#ctaA, #ctaB')) {
-          fetch('/ab_client.php?goal=1&exp=cta_test');
+          fetch('/ab_client.php?goal=1&experiment=cta_test');
         }
       });
     </script>
