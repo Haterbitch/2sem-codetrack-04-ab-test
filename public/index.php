@@ -40,7 +40,7 @@ $variant = ab_variant(
             background-color: #f8f9fa;
         }
 
-        .demo-container {
+        .ab-demo-container {
             background: white;
             padding: 3rem;
             border-radius: 12px;
@@ -53,13 +53,13 @@ $variant = ab_variant(
             margin-bottom: 1rem;
         }
 
-        .subtitle {
+        .ab-subtitle {
             color: #666;
             margin-bottom: 3rem;
             font-size: 1.1rem;
         }
 
-        .cta-button {
+        .ab-cta-button {
             display: inline-block;
             padding: 1rem 2rem;
             font-size: 1.1rem;
@@ -72,38 +72,38 @@ $variant = ab_variant(
             margin: 1rem;
         }
 
-        .cta-primary {
+        .ab-cta-primary {
             background-color: #007bff;
             color: white;
         }
 
-        .cta-primary:hover {
+        .ab-cta-primary:hover {
             background-color: #0056b3;
             transform: translateY(-2px);
         }
 
-        .cta-success {
+        .ab-cta-success {
             background-color: #28a745;
             color: white;
         }
 
-        .cta-success:hover {
+        .ab-cta-success:hover {
             background-color: #1e7e34;
             transform: translateY(-2px);
         }
     </style>
 </head>
 <body>
-    <div class="demo-container">
+    <div class="ab-demo-container">
         <h1>Welcome to Our Service</h1>
-        <p class="subtitle">Join thousands of satisfied customers today</p>
+        <p class="ab-subtitle">Join thousands of satisfied customers today</p>
 
         <?php if ($variant === 'Sign Up Now'): ?>
-            <button id="cta-button" class="cta-button cta-primary">
+            <button id="cta-button" class="ab-cta-button ab-cta-primary">
                 Sign Up Now
             </button>
         <?php else: ?>
-            <button id="cta-button" class="cta-button cta-success">
+            <button id="cta-button" class="ab-cta-button ab-cta-success">
                 Get Started Today
             </button>
         <?php endif; ?>

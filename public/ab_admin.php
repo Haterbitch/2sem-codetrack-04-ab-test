@@ -255,7 +255,7 @@ function deleteEntireExperiment(PDO $database, int $experimentId): bool
             color: #333;
         }
 
-        .container {
+        .ab-container {
             max-width: 1200px;
             margin: 0 auto;
             background: white;
@@ -264,30 +264,30 @@ function deleteEntireExperiment(PDO $database, int $experimentId): bool
             overflow: hidden;
         }
 
-        .header {
+        .ab-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             padding: 2rem;
             text-align: center;
         }
 
-        .header h1 {
+        .ab-header h1 {
             margin: 0;
             font-size: 2rem;
             font-weight: 600;
         }
 
-        .content {
+        .ab-content {
             padding: 2rem;
         }
 
-        .empty-state {
+        .ab-empty-state {
             text-align: center;
             padding: 3rem;
             color: #6c757d;
         }
 
-        .experiment {
+        .ab-experiment {
             background: #f8f9fa;
             border: 1px solid #e9ecef;
             border-radius: 8px;
@@ -295,24 +295,24 @@ function deleteEntireExperiment(PDO $database, int $experimentId): bool
             margin-bottom: 2rem;
         }
 
-        .experiment:last-child {
+        .ab-experiment:last-child {
             margin-bottom: 0;
         }
 
-        .experiment-header {
+        .ab-experiment-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
             margin-bottom: 1rem;
         }
 
-        .experiment-info h2 {
+        .ab-experiment-info h2 {
             margin: 0 0 0.5rem 0;
             color: #495057;
             font-size: 1.5rem;
         }
 
-        .experiment-key {
+        .ab-experiment-key {
             font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
             background: #e9ecef;
             padding: 0.25rem 0.5rem;
@@ -321,28 +321,28 @@ function deleteEntireExperiment(PDO $database, int $experimentId): bool
             color: #495057;
         }
 
-        .delete-button {
+        .ab-delete-button {
             background-color: #dc3545;
             color: white;
             border: none;
-            padding: 0.5rem 1rem;
+            padding: 0.2rem 0.4rem;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 0.875rem;
+            font-size: 0.775rem;
             font-weight: 500;
             transition: background-color 0.2s ease;
         }
 
-        .delete-button:hover {
+        .ab-delete-button:hover {
             background-color: #c82333;
         }
 
-        .delete-button:disabled {
+        .ab-delete-button:disabled {
             background-color: #6c757d;
             cursor: not-allowed;
         }
 
-        .stats-table {
+        .ab-stats-table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 1rem;
@@ -352,42 +352,42 @@ function deleteEntireExperiment(PDO $database, int $experimentId): bool
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
-        .stats-table th,
-        .stats-table td {
+        .ab-stats-table th,
+        .ab-stats-table td {
             padding: 1rem;
             text-align: left;
             border-bottom: 1px solid #e9ecef;
         }
 
-        .stats-table th {
+        .ab-stats-table th {
             background: #f8f9fa;
             font-weight: 600;
             color: #495057;
         }
 
-        .stats-table tr:last-child td {
+        .ab-stats-table tr:last-child td {
             border-bottom: none;
         }
 
-        .stats-table tr:hover {
+        .ab-stats-table tr:hover {
             background-color: #f8f9fa;
         }
 
-        .variant-key {
+        .ab-variant-key {
             font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
             font-weight: 600;
             color: #007bff;
         }
 
-        .metric {
+        .ab-metric {
             font-weight: 600;
         }
 
-        .conversion-rate {
+        .ab-conversion-rate {
             color: #28a745;
         }
 
-        .usage-example {
+        .ab-usage-example {
             background: #f8f9fa;
             border: 1px solid #e9ecef;
             border-radius: 8px;
@@ -395,12 +395,12 @@ function deleteEntireExperiment(PDO $database, int $experimentId): bool
             margin-top: 2rem;
         }
 
-        .usage-example h3 {
+        .ab-usage-example h3 {
             margin: 0 0 1rem 0;
             color: #495057;
         }
 
-        .code-block {
+        .ab-code-block {
             background: #2d3748;
             color: #e2e8f0;
             padding: 1rem;
@@ -411,20 +411,20 @@ function deleteEntireExperiment(PDO $database, int $experimentId): bool
             line-height: 1.5;
         }
 
-        .notification {
+        .ab-notification {
             padding: 1rem;
             border-radius: 6px;
             margin-bottom: 1rem;
             font-weight: 500;
         }
 
-        .notification.success {
+        .ab-notification.ab-success {
             background-color: #d4edda;
             color: #155724;
             border: 1px solid #c3e6cb;
         }
 
-        .notification.error {
+        .ab-notification.ab-error {
             background-color: #f8d7da;
             color: #721c24;
             border: 1px solid #f5c6cb;
@@ -432,59 +432,59 @@ function deleteEntireExperiment(PDO $database, int $experimentId): bool
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
+    <div class="ab-container">
+        <div class="ab-header">
             <h1>A/B Testing Dashboard</h1>
         </div>
 
-        <div class="content">
+        <div class="ab-content">
             <?php if (isset($_GET['deleted'])): ?>
                 <?php if ($_GET['deleted'] === 'data_deleted'): ?>
-                    <div class="notification success">
+                    <div class="ab-notification ab-success">
                         ✓ Experiment data deleted successfully. All assignments and goals have been cleared.
                     </div>
                 <?php elseif ($_GET['deleted'] === 'experiment_deleted'): ?>
-                    <div class="notification success">
+                    <div class="ab-notification ab-success">
                         ✓ Entire experiment deleted successfully. All data, including assignments and goals, have been removed.
                     </div>
                 <?php else: ?>
-                    <div class="notification error">
+                    <div class="ab-notification ab-error">
                         ✗ Error deleting experiment data. Please try again.
                     </div>
                 <?php endif; ?>
             <?php endif; ?>
 
             <?php if (empty($experiments)): ?>
-                <div class="empty-state">
+                <div class="ab-empty-state">
                     <h3>No experiments found</h3>
                     <p>Create your first experiment by calling:</p>
-                    <div class="code-block">ab_variant('my_test', 'My First Test', ['A' => 50, 'B' => 50]);</div>
+                    <div class="ab-code-block">ab_variant('my_test', 'My First Test', ['A' => 50, 'B' => 50]);</div>
                 </div>
             <?php else: ?>
                 <?php foreach ($experiments as $experiment): ?>
-                    <div class="experiment">
-                        <div class="experiment-header">
-                            <div class="experiment-info">
+                    <div class="ab-experiment">
+                        <div class="ab-experiment-header">
+                            <div class="ab-experiment-info">
                                 <h2><?= htmlspecialchars($experiment['name'] ?: $experiment['experiment_key']) ?></h2>
-                                <p>Experiment Key: <span class="experiment-key"><?= htmlspecialchars($experiment['experiment_key']) ?></span></p>
+                                <p>Experiment Key: <span class="ab-experiment-key"><?= htmlspecialchars($experiment['experiment_key']) ?></span></p>
                             </div>
                             <div>
                                 <form method="post" style="display:inline;">
                                     <input type="hidden" name="experiment_id" value="<?= $experiment['id'] ?>">
-                                    <button type="submit" name="delete_data" class="delete-button" onclick="return confirm('Are you sure you want to delete all data for this experiment? This action cannot be undone.');">
+                                    <button type="submit" name="delete_data" class="ab-delete-button" onclick="return confirm('Are you sure you want to delete all data for this experiment? This action cannot be undone.');">
                                         Delete Data
                                     </button>
                                 </form>
                                 <form method="post" style="display:inline;">
                                     <input type="hidden" name="experiment_id" value="<?= $experiment['id'] ?>">
-                                    <button type="submit" name="delete_experiment" class="delete-button" onclick="return confirm('Are you sure you want to delete this entire experiment? This action cannot be undone.');">
+                                    <button type="submit" name="delete_experiment" class="ab-delete-button" onclick="return confirm('Are you sure you want to delete this entire experiment? This action cannot be undone.');">
                                         Delete Experiment
                                     </button>
                                 </form>
                             </div>
                         </div>
 
-                        <table class="stats-table">
+                        <table class="ab-stats-table">
                             <thead>
                                 <tr>
                                     <th>Variant</th>
@@ -496,10 +496,10 @@ function deleteEntireExperiment(PDO $database, int $experimentId): bool
                             <tbody>
                                 <?php foreach (calculateExperimentStats($database, (int) $experiment['id']) as $stat): ?>
                                     <tr>
-                                        <td><span class="variant-key"><?= htmlspecialchars($stat['variant_key']) ?></span></td>
-                                        <td><span class="metric"><?= $stat['views'] ?></span></td>
-                                        <td><span class="metric"><?= $stat['goals'] ?></span></td>
-                                        <td><span class="metric conversion-rate"><?= $stat['conversion_rate'] ?>%</span></td>
+                                        <td><span class="ab-variant-key"><?= htmlspecialchars($stat['variant_key']) ?></span></td>
+                                        <td><span class="ab-metric"><?= $stat['views'] ?></span></td>
+                                        <td><span class="ab-metric"><?= $stat['goals'] ?></span></td>
+                                        <td><span class="ab-metric ab-conversion-rate"><?= $stat['conversion_rate'] ?>%</span></td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
@@ -508,28 +508,50 @@ function deleteEntireExperiment(PDO $database, int $experimentId): bool
                 <?php endforeach; ?>
             <?php endif; ?>
 
-            <div class="usage-example">
+            <div class="ab-usage-example">
                 <h3>Implementation Example</h3>
-                <div class="code-block">&lt;?php
+                <pre class="ab-code-block">&lt;?php
 require __DIR__ . '/ab_client.php';
 
-// Assign variant
-$variant = ab_variant('cta_test', 'CTA Button Test', ['A' =&gt; 50, 'B' =&gt; 50]);
+// Create or get variant assignment for CTA test
+$variant = ab_variant(
+    experimentKey: 'cta_text',
+    experimentName: 'CTA Button Text',
+    weights: [
+        'Sign Up Now' =&gt; 50,
+        'Get Started Today' =&gt; 50,
+    ]
+);
 
 // Render based on variant
-if ($variant === 'A') {
-    echo '&lt;button id="cta" class="btn-primary"&gt;Sign Up Now&lt;/button&gt;';
+if ($variant === 'Sign Up Now') {
+    echo '&lt;button id="cta-button" class="ab-cta-button ab-cta-primary"&gt;Sign Up Now&lt;/button&gt;';
 } else {
-    echo '&lt;button id="cta" class="btn-success"&gt;Get Started&lt;/button&gt;';
+    echo '&lt;button id="cta-button" class="ab-cta-button ab-cta-success"&gt;Get Started Today&lt;/button&gt;';
 }
-
-// Track goals with JavaScript
 ?&gt;
+
 &lt;script&gt;
-document.getElementById('cta').addEventListener('click', function() {
-    fetch('/ab_client.php?goal=1&amp;experiment=cta_test');
+// Track goal when CTA button is clicked
+document.getElementById('cta-button').addEventListener('click', function() {
+    // Send goal tracking request
+    fetch('/ab_client.php?goal&amp;experiment=cta_text')
+        .then(response =&gt; response.json())
+        .then(data =&gt; {
+            if (data.success) {
+                console.log('Goal tracked successfully');
+            }
+        })
+        .catch(error =&gt; {
+            console.error('Error tracking goal:', error);
+        });
+
+    // Show feedback to user
+    this.textContent = 'Thanks!';
+    this.style.backgroundColor = '#6c757d';
+    this.disabled = true;
 });
-&lt;/script&gt;</div>
+&lt;/script&gt;</pre>
             </div>
         </div>
     </div>
